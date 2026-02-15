@@ -1,6 +1,6 @@
 # Actuarial Valuation Dashboard (UHI Egypt)
 # Law No. 2 of 2018 Compliance
-# v1.0.4 - System Sync Fix
+# v3.1 Stable - Full Audit Fix
 
 import streamlit as st
 import pandas as pd
@@ -8,7 +8,6 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from pricing_engine import UHISystemConfig, ActuarialValuationEngine, generate_dummy_population
-from gcp_utils import get_gcp_credentials
 
 # =============================================================================
 # PAGE CONFIGURATION
@@ -36,7 +35,7 @@ credentials = None
 try:
     from gcp_utils import get_gcp_credentials
     credentials = get_gcp_credentials()
-except:
+except Exception:
     pass
 
 if "audit_log" not in st.session_state:
@@ -200,7 +199,7 @@ if st.session_state.population_df is None:
         st.rerun()
     
     st.divider()
-    st.caption("Status: System Offline | Enterprise Version 1.8 Stable")
+    st.caption("Status: System Offline | Enterprise Version 3.1 Stable")
     st.stop()
 
 # 2. Run Engine
@@ -263,23 +262,55 @@ with tab_ai:
     if not credentials:
         st.warning("🔒 **Phase 2: Strategic Intelligence Locked**")
         st.info("""
-        The **Gemini 2.0 Strategic Agent** requires a valid GCP Service Account token to activate reasoning.
-        Please upload your `service_account.json` key in the sidebar to enlightened the system.
+        The **Gemini 1.5 Flash Agent** requires a valid GCP Service Account token to activate reasoning.
+        Please upload your `service_account.json` key in the sidebar to enlighten the system.
         """)
     else:
         st.success("🤖 **Phase 2: AI Strategy Agent Activated**")
-        chat_input = st.text_input("Consult with the Executive Intelligence Hub (Type query and press Enter):", 
-                                  placeholder="e.g., 'Analyze the solvency risk of this scenario for 50 years'",
+        agent_choice = st.radio(
+            "Select Specialist Agent:",
+            ["Senior Actuary", "Legislative Architect"],
+            index=0,
+            horizontal=True,
+            help="Switch between numerical solvency analysis and legislative/legal strategy."
+        )
+        
+        placeholder = "e.g., 'Analyze solvency for 50 years'" if agent_choice == "Senior Actuary" else "e.g., 'Recommend Law 2/2018 amendments to fix this deficit'"
+        chat_input = st.text_input(f"Consult with {agent_choice} (Type query and press Enter):", 
+                                  placeholder=placeholder,
                                   key="main_chat")
+        
         if chat_input:
-            with st.spinner("🤖 Consulting Senior Actuary AI..."):
+            with st.spinner(f"🤖 Consulting {agent_choice}..."):
+                import json
                 from gcp_utils import ask_gemini_actuary
-                data_summary = f"- Scenario: {scenario}\n- Final Reserve: {last_year['Reserve_Fund']/1e6:.1f}M\n- Medical Inf: {med_inflation:.1%}"
-                ai_response = ask_gemini_actuary(chat_input, data_summary)
-                st.markdown(f"**🤖 Senior Actuary AI Analysis:**\n\n{ai_response}")
-                log_change(f"Strategic Intelligence Consultation: {chat_input}")
+                
+                # Build credentials string from session or local file
+                creds_info = st.session_state.get("uploaded_gcp_json")
+                if not creds_info:
+                    # Fallback: try loading from local file
+                    import os
+                    local_path = "service_account.json"
+                    if os.path.exists(local_path):
+                        with open(local_path, 'r') as f:
+                            creds_info = json.load(f)
+                
+                if not creds_info:
+                    st.error("⚠️ No credentials found. Please upload your JSON key.")
+                else:
+                    creds_str = json.dumps(creds_info)
+                    data_summary = f"- Scenario: {scenario}\n- Final Reserve: {last_year['Reserve_Fund']/1e6:.1f}M\n- Medical Inf: {med_inflation:.1%}\n- Solvency Status: {'Solvent' if last_year['Reserve_Fund'] > 0 else 'Deficit'}"
+                    
+                    ai_response = ask_gemini_actuary(chat_input, data_summary, agent_choice, creds_str)
+                    st.markdown(f"**🤖 {agent_choice} Analysis:**\n\n{ai_response}")
+                    log_change(f"Oversight Consultation ({agent_choice}): {chat_input}")
 
 with tab_agents:
+    st.subheader("🤖 Agentic Oversight Team (CrewAI Pattern)")
+    st.markdown("""
+    This autonomous team provides **Secondary Verification** of the actuarial results. 
+    Each agent uses a specialized persona to stress-test the simulation data against separate criteria.
+    """)
     agent_audit = engine.perform_agentic_audit(df_proj)
     cols = st.columns(3)
     for i, audit in enumerate(agent_audit):
