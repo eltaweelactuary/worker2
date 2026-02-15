@@ -55,15 +55,25 @@ def get_gcp_credentials():
             # 1. Preliminary cleanup
             pk = pk.replace("\\n", "\n").strip().strip('"').strip("'")
             
-            # 2. Extreme Reconstruction: Extract Base64 body and rebuild PEM
+            # 2. Hyper-Clean Reconstruction: Binary-safe Base64 normalization
             import re
-            # Split by headers to get the body
-            parts = re.split(r'-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----', pk)
-            if len(parts) >= 2:
-                # Use only the middle part (the body) and strip all whitespace/newlines
-                body = "".join(parts[1].split())
-                # Rebuild perfectly formatted PEM
-                info["private_key"] = f"-----BEGIN PRIVATE KEY-----\n{body}\n-----END PRIVATE KEY-----"
+            import base64
+            
+            # Extract content between markers
+            match = re.search(r'-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----', pk)
+            if match:
+                # Remove all whitespace from body
+                body_raw = "".join(match.group(1).split())
+                try:
+                    # Binary normalization: Decode then re-encode to ensure pure Base64
+                    binary_key = base64.b64decode(body_raw)
+                    # Re-encode to clean Base64 string
+                    body_clean = base64.b64encode(binary_key).decode('utf-8')
+                    # Standard PEM wrapping (64 chars per line is best practice but 1 line usually works)
+                    info["private_key"] = f"-----BEGIN PRIVATE KEY-----\n{body_clean}\n-----END PRIVATE KEY-----"
+                except Exception:
+                    # Fallback to simple split if binary decode fails
+                    info["private_key"] = f"-----BEGIN PRIVATE KEY-----\n{body_raw}\n-----END PRIVATE KEY-----"
             else:
                 info["private_key"] = pk.strip()
             
