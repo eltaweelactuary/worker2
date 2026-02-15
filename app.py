@@ -28,8 +28,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================================================
-# INITIALIZE STATE
+# GLOBAL AUTH & STATE
 # =============================================================================
+
+# 0. Global Auth Check
+credentials = None
+try:
+    from gcp_utils import get_gcp_credentials
+    credentials = get_gcp_credentials()
+except:
+    pass
+
 if "audit_log" not in st.session_state:
     st.session_state.audit_log = []
 
@@ -45,13 +54,6 @@ def log_change(msg):
 # =============================================================================
 
 with st.sidebar:
-    # 0. Global Auth Check
-    credentials = None
-    try:
-        credentials = get_gcp_credentials()
-    except:
-        pass
-
     st.header("🔐 Authentication")
     with st.expander("🔑 Upload Service Account JSON", expanded=not credentials):
         uploaded_json = st.file_uploader("Drop service_account.json here", type="json")
@@ -148,14 +150,26 @@ with st.sidebar:
 st.markdown('<h1 class="main-header">🏛️ UHI Actuarial Valuation Dashboard</h1>', unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Strategic multi-year solvency projection for the Universal Health Insurance Authority</p>", unsafe_allow_html=True)
 
-# 1. Load Data
+# 1. Start: Professional Mission Objective
 if 'population_df' not in st.session_state:
-    st.session_state.population_df = generate_dummy_population(pop_size)
+    st.session_state.population_df = None
 
-uploaded_file = st.file_uploader("Upload Population Structure (CSV)", type="csv")
-if uploaded_file:
-    st.session_state.population_df = pd.read_csv(uploaded_file)
-    st.success("Custom population data loaded.")
+if st.session_state.population_df is None:
+    st.info("👋 **Welcome to the UHI Actuarial Command Center.**")
+    st.markdown("""
+    To begin the sovereign valuation process, please upload the citizen structure file.
+    All analytical modules and AI strategic agents will be initialized based on your data.
+    """)
+    
+    uploaded_file = st.file_uploader("📤 Step 1: Upload Population Structure (CSV)", type="csv")
+    if uploaded_file:
+        st.session_state.population_df = pd.read_csv(uploaded_file)
+        st.success("✅ Citizen structure loaded. Initializing Actuarial Modules...")
+        st.rerun()
+    
+    st.divider()
+    st.caption("Strategic multi-year solvency projection for the Universal Health Insurance Authority")
+    st.stop() # Stop execution here until a file is uploaded
 
 # 2. Run Engine
 config = UHISystemConfig(
@@ -206,14 +220,19 @@ st.markdown("---")
 tab_ai, tab_agents, tab_xai = st.tabs(["💬 Gemini Actuary", "🤖 Agentic Oversight", "ℹ️ XAI Insights"])
 
 with tab_ai:
-    chat_input = st.text_input("Ask the AI Actuary about the current scenario:", key="main_chat")
-    if chat_input:
-        with st.spinner("🤖 Consulting Gemini 2.0..."):
-            from gcp_utils import ask_gemini_actuary
-            data_summary = f"- Scenario: {scenario}\n- Final Reserve: {last_year['Reserve_Fund']/1e6:.1f}M\n- Medical Inf: {med_inflation:.1%}"
-            ai_response = ask_gemini_actuary(chat_input, data_summary)
-            st.markdown(f"**🤖 Actuary Response:**\n\n{ai_response}")
-            log_change(f"AI Consultation: {chat_input}")
+    if not credentials:
+        st.warning("🔒 **Strategic Intelligence Locked**")
+        st.info("To activate the Gemini 2.0 Strategic Agent, please upload your `service_account.json` key in the sidebar.")
+    else:
+        st.success("🤖 **AI Strategy Agent: Activated**")
+        chat_input = st.text_input("Consult with the AI Actuary about this scenario (Press Enter to send):", key="main_chat")
+        if chat_input:
+            with st.spinner("🤖 Consulting Executive Intelligence Hub..."):
+                from gcp_utils import ask_gemini_actuary
+                data_summary = f"- Scenario: {scenario}\n- Final Reserve: {last_year['Reserve_Fund']/1e6:.1f}M\n- Medical Inf: {med_inflation:.1%}"
+                ai_response = ask_gemini_actuary(chat_input, data_summary)
+                st.markdown(f"**🤖 Senior Actuary AI Response:**\n\n{ai_response}")
+                log_change(f"Strategic Consultation: {chat_input}")
 
 with tab_agents:
     agent_audit = engine.perform_agentic_audit(df_proj)
