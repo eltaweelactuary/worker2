@@ -153,19 +153,6 @@ with st.sidebar:
 st.markdown('<h1 class="main-header">🏛️ UHI Actuarial Valuation Dashboard</h1>', unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Strategic multi-year solvency projection for the Universal Health Insurance Authority</p>", unsafe_allow_html=True)
 
-# 0. Guided Tour for Executives
-with st.expander("🎓 **Guided Mission: How to use this Dashboard**", expanded=False):
-    st.markdown("""
-    Welcome to the Enterprise UHI Command Center. Follow these steps for a complete strategic review:
-    1.  **Check Connectivity:** Verify the **GCP Cloud Authenticated** status in the sidebar.
-    2.  **Audit Trail:** Observe the **🛡️ Audit Trail** as you adjust economic assumptions.
-    3.  **Risk Alerts:** Watch the **🚨 Executive Risk Alerts** section react in real-time.
-    4.  **Stress Test:** Scroll down to run a **🎲 Monte Carlo Simulation** for 1,000 futures.
-    5.  **AI Chat:** Use the chat box to type commands like *"increase inflation to 20%"*.
-    6.  **XAI Insights:** Open *"Why did the deficit increase?"* to see mathematical cost driver attribution.
-    """)
-
-
 # 1. Load Data
 if 'population_df' not in st.session_state:
     st.session_state.population_df = generate_dummy_population(pop_size)
@@ -186,46 +173,21 @@ config = UHISystemConfig(
 engine = ActuarialValuationEngine(config)
 df_proj = engine.project_solvency(st.session_state.population_df, years=projection_years)
 
-# 0.1 Module F: Agentic Oversight Team (CrewAI Concept)
-st.markdown("---")
-st.markdown("### 🤖 Agentic Oversight Team")
-agent_audit = engine.perform_agentic_audit(df_proj)
-agent_cols = st.columns(3)
-for i, audit in enumerate(agent_audit):
-    with agent_cols[i % 3]:
-        st.info(f"**{audit['agent']}**\n\n*Goal:* {audit['goal']}\n\n*Analysis:* {audit['analysis']}")
+# 3. High Level Metrics (Final Year)
+last_year = df_proj.iloc[-1]
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric("Total Population", f"{len(st.session_state.population_df):,}")
+with col2:
+    st.metric(f"Reserve Fund (Year {projection_years})", f"{last_year['Reserve_Fund']/1e6:.1f}M")
+with col3:
+    st.metric("Solvency Status", "Solvent" if last_year['Reserve_Fund'] > 0 else "Deficit")
+with col4:
+    subsidy = last_year['Required_State_Subsidy']
+    st.metric("Required State Subsidy", f"{subsidy/1e6:.1f}M", delta=f"{subsidy/1e6:.1f}M" if subsidy > 0 else None, delta_color="inverse")
 
-# 0.2 Module E: AI Chat with Data
-chat_input = st.text_input("💬 Ask the Actuary AI (e.g., 'Analyze our insolvency risk' or 'increase inflation to 15%')")
-if chat_input:
-    import re
-    inf_match = re.search(r"inflation to (\d+)%", chat_input.lower())
-    if inf_match:
-        new_val = int(inf_match.group(1)) / 100
-        st.info(f"🤖 AI Command: Setting Medical Inflation to {new_val:.0%}")
-        log_change(f"Chat Command: Set Medical Inflation to {new_val:.0%}")
-        med_inflation = new_val # Override current run
-    else:
-        # Deep Reasoning via Gemini
-        with st.spinner("🤖 Consulting Gemini Actuary..."):
-            from gcp_utils import ask_gemini_actuary
-            
-            # Create a concise context for Gemini
-            data_summary = f"""
-            - Selected Scenario: {scenario}
-            - Years Projected: {projection_years}
-            - Final Reserve: {df_proj.iloc[-1]['Reserve_Fund']/1e6:.1f}M EGP
-            - Medical Inflation: {med_inflation:.1%}
-            - Wage growth: {wage_inflation:.1%}.
-            """
-            
-            ai_response = ask_gemini_actuary(chat_input, data_summary)
-            st.markdown(f"**🤖 Gemini Actuary:**\n\n{ai_response}")
-            log_change(f"AI Consultation: Asked '{chat_input}'")
-
-# 3. EXECUTIVE RISK ALERT CENTER
+# 4. EXECUTIVE RISK ALERT CENTER
 st.markdown("### 🚨 Executive Risk Alerts")
-# Flatten all flags from all years and display unique ones
 all_flags = []
 for idx, row in df_proj.iterrows():
     for flag in row['Risk_Flags']:
@@ -233,40 +195,42 @@ for idx, row in df_proj.iterrows():
         all_flags.append(flag)
 
 if not all_flags:
-    st.success("✅ System Stability: No critical risk thresholds exceeded over the projection horizon.")
+    st.success("✅ System Stability: No critical risk thresholds exceeded.")
 else:
-    # Display unique types of alerts to avoid clutter
     unique_types = {f['type']: f for f in all_flags}.values()
     cols = st.columns(len(unique_types))
     for i, flag in enumerate(unique_types):
         with cols[i % len(cols)]:
             if flag['level'] == "CRITICAL":
-                st.error(f"**{flag['type']}**\n\n{flag['msg']}\n\n*Action:* {flag['action']}")
+                st.error(f"**{flag['type']}**\n\n{flag['msg']}")
             else:
-                st.warning(f"**{flag['type']}**\n\n{flag['msg']}\n\n*Action:* {flag['action']}")
+                st.warning(f"**{flag['type']}**\n\n{flag['msg']}")
 
-# 4. High Level Metrics (Final Year)
-last_year = df_proj.iloc[-1]
-
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("Total Population", f"{len(st.session_state.population_df):,}")
-with col2:
-    st.metric(f"Reserve Fund (Year {projection_years})", f"{last_year['Reserve_Fund']/1e6:.1f}M")
-with col3:
-    st.metric("Solvency Status", "Solvent" if last_year['Reserve_Fund'] > 0 else "Deficit", delta_color="normal")
-with col4:
-    subsidy = last_year['Required_State_Subsidy']
-    st.metric("Required State Subsidy", f"{subsidy/1e6:.1f}M", delta=f"{subsidy/1e6:.1f}M" if subsidy > 0 else None, delta_color="inverse")
-
-# 4.5 Module A: XAI (Explainers)
+# 5. STRATEGIC INTELLIGENCE HUB
 st.markdown("---")
-with st.expander("ℹ️ Why did the deficit increase? (XAI Insights)"):
+tab_ai, tab_agents, tab_xai = st.tabs(["💬 Gemini Actuary", "🤖 Agentic Oversight", "ℹ️ XAI Insights"])
+
+with tab_ai:
+    chat_input = st.text_input("Ask the AI Actuary about the current scenario:", key="main_chat")
+    if chat_input:
+        with st.spinner("🤖 Consulting Gemini 2.0..."):
+            from gcp_utils import ask_gemini_actuary
+            data_summary = f"- Scenario: {scenario}\n- Final Reserve: {last_year['Reserve_Fund']/1e6:.1f}M\n- Medical Inf: {med_inflation:.1%}"
+            ai_response = ask_gemini_actuary(chat_input, data_summary)
+            st.markdown(f"**🤖 Actuary Response:**\n\n{ai_response}")
+            log_change(f"AI Consultation: {chat_input}")
+
+with tab_agents:
+    agent_audit = engine.perform_agentic_audit(df_proj)
+    cols = st.columns(3)
+    for i, audit in enumerate(agent_audit):
+        with cols[i % 3]:
+            st.info(f"**{audit['agent']}**\n\n*Analysis:* {audit['analysis']}")
+
+with tab_xai:
     explanations = engine.explain_projection(df_proj)
     for exp in explanations:
         st.write(exp)
-    
-    # Module D: Reinsurance Recommendation
     avg_cost = df_proj['Total_Expenditure'].mean()
     st.info(engine.suggest_reinsurance(avg_cost))
 
