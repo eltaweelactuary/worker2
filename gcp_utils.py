@@ -70,3 +70,30 @@ def get_gcp_credentials():
         return service_account.Credentials.from_service_account_info(info)
         
     return None
+
+def get_gcp_diagnostics():
+    """
+    Returns diagnostic information about the GCP configuration without exposing secrets.
+    """
+    diag = {"status": "Not Found", "checks": []}
+    
+    if "gcp_service_account" not in st.secrets:
+        diag["status"] = "Missing [gcp_service_account] in Secrets"
+        return diag
+        
+    info = st.secrets["gcp_service_account"]
+    diag["status"] = "Found in Secrets"
+    
+    if "private_key" in info:
+        pk = info["private_key"]
+        diag["checks"].append(f"Key Length: {len(pk)} chars")
+        diag["checks"].append(f"Starts with Header: {pk.strip().startswith('-----BEGIN PRIVATE KEY-----')}")
+        diag["checks"].append(f"Ends with Footer: {pk.strip().endswith('-----END PRIVATE KEY-----')}")
+        diag["checks"].append(f"Contains \\n (literal): {'\\n' in pk}")
+        diag["checks"].append(f"Lines Count: {len(pk.splitlines())}")
+        
+        # Check for common truncation
+        if len(pk) < 1000:
+            diag["checks"].append("⚠️ WARNING: Key looks unusually short (Check for truncation)")
+            
+    return diag

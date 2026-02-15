@@ -37,6 +37,13 @@ with st.sidebar:
         st.sidebar.success("✅ GCP Cloud Authenticated")
     else:
         st.sidebar.info("💡 Running in Local/Public Mode")
+        with st.sidebar.expander("🔍 GCP Diagnostic Tool"):
+            from gcp_utils import get_gcp_diagnostics
+            diag = get_gcp_diagnostics()
+            st.write(f"**Status:** {diag['status']}")
+            for check in diag.get('checks', []):
+                st.write(f"- {check}")
+            st.caption("Common fix: Ensure the key is pasted exactly inside triple quotes \"\"\" in Secrets.")
 
     st.header("⚙️ Actuarial Assumptions")
     
