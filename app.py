@@ -55,10 +55,26 @@ with st.sidebar:
 
     st.header("⚙️ Actuarial Assumptions")
     
-    st.subheader("📈 Economic Factors")
-    med_inflation = st.slider("Medical Inflation (%)", 5.0, 25.0, 12.0) / 100
-    wage_inflation = st.slider("Wage Inflation (%)", 3.0, 15.0, 7.0) / 100
-    inv_return = st.slider("Investment Return (%)", 5.0, 20.0, 12.0) / 100
+    # 2. Sales Tool: Crisis Mode
+    if "crisis_mode" not in st.session_state:
+        st.session_state.crisis_mode = False
+        
+    crisis_trigger = st.button("🔴 Simulate Crisis Scenario", use_container_width=True, type="secondary" if not st.session_state.crisis_mode else "primary")
+    if crisis_trigger:
+        st.session_state.crisis_mode = not st.session_state.crisis_mode
+    
+    if st.session_state.crisis_mode:
+        st.warning("🚨 DEMO: Crisis Mode Active")
+        med_inflation = 0.18  # 18%
+        wage_inflation = 0.05  # 5%
+        inv_return = 0.04      # 4%
+        admin_expense_input = 0.07 # 7%
+    else:
+        st.subheader("📈 Economic Factors")
+        med_inflation = st.slider("Medical Inflation (%)", 5.0, 25.0, 12.0) / 100
+        wage_inflation = st.slider("Wage Inflation (%)", 3.0, 15.0, 7.0) / 100
+        inv_return = st.slider("Investment Return (%)", 5.0, 20.0, 12.0) / 100
+        admin_expense_input = 0.04 # Default 4%
     
     st.subheader("👥 Demographics")
     pop_size = st.number_input("Population Size (Sample)", 100, 100000, 1000)
@@ -90,13 +106,36 @@ if uploaded_file:
 config = UHISystemConfig(
     medical_inflation=med_inflation,
     wage_inflation=wage_inflation,
-    investment_return_rate=inv_return
+    investment_return_rate=inv_return,
+    admin_expense_pct=admin_expense_input
 )
 
 engine = ActuarialValuationEngine(config)
 df_proj = engine.project_solvency(st.session_state.population_df, years=projection_years)
 
-# 3. High Level Metrics (Final Year)
+# 3. EXECUTIVE RISK ALERT CENTER
+st.markdown("### 🚨 Executive Risk Alerts")
+# Flatten all flags from all years and display unique ones
+all_flags = []
+for idx, row in df_proj.iterrows():
+    for flag in row['Risk_Flags']:
+        flag['Year'] = row['Year']
+        all_flags.append(flag)
+
+if not all_flags:
+    st.success("✅ System Stability: No critical risk thresholds exceeded over the projection horizon.")
+else:
+    # Display unique types of alerts to avoid clutter
+    unique_types = {f['type']: f for f in all_flags}.values()
+    cols = st.columns(len(unique_types))
+    for i, flag in enumerate(unique_types):
+        with cols[i % len(cols)]:
+            if flag['level'] == "CRITICAL":
+                st.error(f"**{flag['type']}**\n\n{flag['msg']}\n\n*Action:* {flag['action']}")
+            else:
+                st.warning(f"**{flag['type']}**\n\n{flag['msg']}\n\n*Action:* {flag['action']}")
+
+# 4. High Level Metrics (Final Year)
 last_year = df_proj.iloc[-1]
 
 col1, col2, col3, col4 = st.columns(4)
@@ -107,11 +146,8 @@ with col2:
 with col3:
     st.metric("Solvency Status", "Solvent" if last_year['Reserve_Fund'] > 0 else "Deficit", delta_color="normal")
 with col4:
-    # Enhancement: Turn red if > 0
     subsidy = last_year['Required_State_Subsidy']
     st.metric("Required State Subsidy", f"{subsidy/1e6:.1f}M", delta=f"{subsidy/1e6:.1f}M" if subsidy > 0 else None, delta_color="inverse")
-    if subsidy > 0:
-        st.warning(f"🚨 Article 48 Triggered: {subsidy/1e6:.1f}M deficit predicted.")
 
 # 4. Visualizations
 tab1, tab2, tab3 = st.tabs(["📊 Solvency Projection", "💸 Revenue vs Cost", "🗄️ Reserve Accumulation"])
@@ -138,7 +174,8 @@ with tab3:
     fig = px.area(df_proj, x='Year', y='Reserve_Fund', 
                   title="Accumulated Technical Reserves",
                   color_discrete_sequence=['#2ca02c'])
-    fig.add_hline(y=0, line_dash="solid", line_color="black")
+    # Thick Red Zero-Line for Danger Zone emphasis
+    fig.add_hline(y=0, line_dash="solid", line_color="red", line_width=3)
     st.plotly_chart(fig, use_container_width=True)
 
 # 5. Data Preview

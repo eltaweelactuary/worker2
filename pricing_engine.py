@@ -135,10 +135,73 @@ class ActuarialValuationEngine:
                 'Net_Cash_Flow': net_cash_flow,
                 'Investment_Income': investment_income,
                 'Reserve_Fund': accumulated_reserve,
-                'Required_State_Subsidy': state_subsidy_required
+                'Required_State_Subsidy': state_subsidy_required,
+                'Risk_Flags': self._detect_risk_flags(
+                    year_rev=total_revenue,
+                    year_exp=total_expenditure,
+                    admin_exp=admin_cost,
+                    net_cf=net_cash_flow,
+                    reserve=accumulated_reserve,
+                    inv_yield=self.config.investment_return_rate,
+                    med_infl=self.config.medical_inflation,
+                    wage_infl=self.config.wage_inflation
+                )
             })
             
         return pd.DataFrame(projections)
+
+    def _detect_risk_flags(self, year_rev, year_exp, admin_exp, net_cf, reserve, inv_yield, med_infl, wage_infl) -> List[Dict]:
+        """
+        Actuarial Risk Detection Logic based on Law 2/2018.
+        """
+        flags = []
+        
+        # 1. Solvency Breach (Bankruptcy)
+        if reserve < 0:
+            flags.append({
+                "level": "CRITICAL",
+                "type": "Bankruptcy",
+                "msg": "Article 40 Guarantee Triggered: Technical insolvency projected.",
+                "action": "Immediate State Treasury Intervention Required."
+            })
+            
+        # 2. Inflation Gap
+        if med_infl > (wage_infl + 0.02):
+            flags.append({
+                "level": "WARNING",
+                "type": "Inflation Gap",
+                "msg": f"Medical inflation ({med_infl:.1%}) significantly exceeds wage growth ({wage_infl:.1%}).",
+                "action": "Renegotiate provider primary rates or increase payroll contribution caps."
+            })
+            
+        # 3. Admin Cost Violation (Legal Cap)
+        if admin_exp > (year_rev * 0.05):
+            flags.append({
+                "level": "CRITICAL",
+                "type": "Legal Breach",
+                "msg": f"Admin expenses ({admin_exp/year_rev:.1%}) exceed the 5% legal cap.",
+                "action": "Optimize administrative operations or freeze staff expansion."
+            })
+            
+        # 4. Liquidity Trap
+        if net_cf < 0 and reserve > 0:
+            flags.append({
+                "level": "WARNING",
+                "type": "Liquidity Trap",
+                "msg": "Operating deficit detected. System is currently eroding its reserve base.",
+                "action": "Introduce new revenue streams (e.g., Highway Tolls adjustment)."
+            })
+            
+        # 5. Asset Erosion
+        if inv_yield < med_infl:
+            flags.append({
+                "level": "WARNING",
+                "type": "Asset Erosion",
+                "msg": "Investment yields are failing to beat medical inflation.",
+                "action": "Shift investment portfolio to higher-yield treasury instruments."
+            })
+            
+        return flags
 
 def generate_dummy_population(size: int = 1000) -> pd.DataFrame:
     """
