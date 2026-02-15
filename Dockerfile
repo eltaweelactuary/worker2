@@ -1,26 +1,22 @@
 # Use official Python image
 FROM python:3.10-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install only essential system deps
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
-    software-properties-common \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
-COPY requirements_dashboard.txt .
-RUN pip install --no-cache-dir -r requirements_dashboard.txt
+# Copy and install Python deps
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
+# Copy application code
 COPY . .
 
-# Expose port (Cloud Run uses PORT env var, typically 8080)
+# Cloud Run uses PORT env var (default 8080)
 EXPOSE 8080
 
-# Run streamlit
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0"]
+ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0", "--server.headless=true"]

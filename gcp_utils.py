@@ -1,51 +1,10 @@
 """
-GCP Authentication & AI Orchestration Module (v3.1 Stable)
-Handles credential management and multi-agent Gemini interactions.
+Gemini AI Module (v3.3 - Direct API)
+Uses google-generativeai with a simple API Key.
+No service accounts, no Vertex AI, no JSON uploads.
 """
-import os
-import json
 import streamlit as st
-from google.oauth2 import service_account
-
-
-def get_gcp_credentials():
-    """
-    Initializes GCP credentials strictly from uploaded JSON or local file.
-    Uses from_service_account_info for in-memory loading (more robust in cloud).
-    """
-    # Priority 1: User-uploaded JSON in session state
-    if "uploaded_gcp_json" in st.session_state and st.session_state.uploaded_gcp_json:
-        try:
-            info = st.session_state.uploaded_gcp_json
-            return service_account.Credentials.from_service_account_info(info)
-        except Exception as e:
-            st.error(f"Auth Error (Session): {str(e)}")
-            return None
-
-    # Priority 2: Local service_account.json (Development only)
-    local_path = "service_account.json"
-    if os.path.exists(local_path):
-        try:
-            return service_account.Credentials.from_service_account_file(local_path)
-        except Exception:
-            return None
-
-    return None
-
-
-@st.cache_resource(show_spinner=False)
-def _init_vertex(project_id: str, creds_json: str):
-    """
-    Cached Vertex AI Initialization (v3.1).
-    Uses st.cache_resource to ensure it only happens once per valid project.
-    """
-    import vertexai
-    try:
-        creds = service_account.Credentials.from_service_account_info(json.loads(creds_json))
-        vertexai.init(project=project_id, location="us-central1", credentials=creds)
-        return True
-    except Exception as e:
-        return str(e)
+import google.generativeai as genai
 
 
 # ─── Agent Persona Definitions ─────────────────────────────────────────
@@ -68,29 +27,36 @@ AGENT_PROMPTS = {
 }
 
 
+def configure_gemini(api_key: str):
+    """Configure the Gemini API with the provided key."""
+    genai.configure(api_key=api_key)
+    st.session_state["gemini_configured"] = True
+
+
+def is_gemini_ready() -> bool:
+    """Check if Gemini API is configured and ready."""
+    return st.session_state.get("gemini_configured", False)
+
+
 @st.cache_data(show_spinner=False, ttl=3600)
-def ask_gemini_actuary(user_query: str, data_summary: str, persona: str, creds_json: str):
+def ask_gemini_actuary(user_query: str, data_summary: str, persona: str, api_key: str):
     """
-    Cached Strategic Query (v3.1).
-    Memoizes responses to prevent redundant API calls during UI interactions.
+    Sends a strategic actuarial query to Gemini via direct API.
+    Cached to prevent redundant calls during UI interactions.
     """
-    from vertexai.generative_models import GenerativeModel
-
     try:
-        info = json.loads(creds_json)
-        project_id = info.get("project_id")
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
 
-        init_result = _init_vertex(project_id, creds_json)
-        if init_result is not True:
-            return f"⚠️ Connection Error: {init_result}"
-
-        model = GenerativeModel("gemini-1.5-flash")
         prompt_template = AGENT_PROMPTS.get(persona, AGENT_PROMPTS["Senior Actuary"])
         full_prompt = prompt_template.replace("{data}", data_summary).replace("{query}", user_query)
 
         response = model.generate_content(full_prompt)
         return response.text
     except Exception as e:
-        if "quota" in str(e).lower():
+        error_msg = str(e).lower()
+        if "quota" in error_msg:
             return "❌ API Quota Exceeded. Please try again in 60 seconds."
+        if "api_key" in error_msg or "invalid" in error_msg:
+            return "❌ Invalid API Key. Please check your Gemini API key."
         return f"❌ AI Agent Error: {str(e)}"

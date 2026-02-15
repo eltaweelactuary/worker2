@@ -1,6 +1,6 @@
 # Actuarial Valuation Dashboard (UHI Egypt)
 # Law No. 2 of 2018 Compliance
-# v3.1 Stable - Full Audit Fix
+# v3.3 Stable - Gemini API Direct
 
 import streamlit as st
 import pandas as pd
@@ -30,13 +30,10 @@ st.markdown("""
 # GLOBAL AUTH & STATE
 # =============================================================================
 
-# 0. Global Auth Check
-credentials = None
-try:
-    from gcp_utils import get_gcp_credentials
-    credentials = get_gcp_credentials()
-except Exception:
-    pass
+# 0. Gemini API Key Check
+gemini_api_key = None
+if "gemini_api_key" in st.session_state and st.session_state.gemini_api_key:
+    gemini_api_key = st.session_state.gemini_api_key
 
 if "audit_log" not in st.session_state:
     st.session_state.audit_log = []
@@ -53,22 +50,19 @@ def log_change(msg):
 # =============================================================================
 
 with st.sidebar:
-    st.header("🔐 1. Authentication")
-    with st.expander("🔑 Step A: Upload Service Account JSON", expanded=not credentials):
-        uploaded_json = st.file_uploader("Drop service_account.json here", type="json", help="Required for Phase 2: Strategic Intelligence. This key activates the Gemini 2.0 reasoning engine.")
-        if uploaded_json:
-            import json
-            try:
-                st.session_state.uploaded_gcp_json = json.load(uploaded_json)
-                st.success("JSON Key Loaded! Restarting auth...")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Invalid JSON: {e}")
-    
-    if credentials:
-        st.success("✅ Cloud Active")
+    st.header("🔐 1. Gemini API Key")
+    api_key_input = st.text_input(
+        "🔑 Paste your Gemini API Key:",
+        type="password",
+        value=gemini_api_key or "",
+        help="Get your free API key from https://aistudio.google.com/apikey"
+    )
+    if api_key_input:
+        st.session_state.gemini_api_key = api_key_input
+        gemini_api_key = api_key_input
+        st.success("✅ Gemini AI Active")
     else:
-        st.info("💡 Local/Public Mode")
+        st.info("💡 Paste your API key to activate AI")
 
     st.header("⚙️ 2. Actuarial Assumptions")
     
@@ -259,11 +253,11 @@ st.markdown("---")
 tab_ai, tab_agents, tab_xai = st.tabs(["💬 Gemini Actuary", "🤖 Agentic Oversight", "ℹ️ XAI Insights"])
 
 with tab_ai:
-    if not credentials:
+    if not gemini_api_key:
         st.warning("🔒 **Phase 2: Strategic Intelligence Locked**")
         st.info("""
-        The **Gemini 1.5 Flash Agent** requires a valid GCP Service Account token to activate reasoning.
-        Please upload your `service_account.json` key in the sidebar to enlighten the system.
+        The **Gemini 1.5 Flash Agent** requires an API key to activate reasoning.
+        Get your free key from [Google AI Studio](https://aistudio.google.com/apikey) and paste it in the sidebar.
         """)
     else:
         st.success("🤖 **Phase 2: AI Strategy Agent Activated**")
@@ -282,28 +276,12 @@ with tab_ai:
         
         if chat_input:
             with st.spinner(f"🤖 Consulting {agent_choice}..."):
-                import json
                 from gcp_utils import ask_gemini_actuary
                 
-                # Build credentials string from session or local file
-                creds_info = st.session_state.get("uploaded_gcp_json")
-                if not creds_info:
-                    # Fallback: try loading from local file
-                    import os
-                    local_path = "service_account.json"
-                    if os.path.exists(local_path):
-                        with open(local_path, 'r') as f:
-                            creds_info = json.load(f)
-                
-                if not creds_info:
-                    st.error("⚠️ No credentials found. Please upload your JSON key.")
-                else:
-                    creds_str = json.dumps(creds_info)
-                    data_summary = f"- Scenario: {scenario}\n- Final Reserve: {last_year['Reserve_Fund']/1e6:.1f}M\n- Medical Inf: {med_inflation:.1%}\n- Solvency Status: {'Solvent' if last_year['Reserve_Fund'] > 0 else 'Deficit'}"
-                    
-                    ai_response = ask_gemini_actuary(chat_input, data_summary, agent_choice, creds_str)
-                    st.markdown(f"**🤖 {agent_choice} Analysis:**\n\n{ai_response}")
-                    log_change(f"Oversight Consultation ({agent_choice}): {chat_input}")
+                data_summary = f"- Scenario: {scenario}\n- Final Reserve: {last_year['Reserve_Fund']/1e6:.1f}M\n- Medical Inf: {med_inflation:.1%}\n- Solvency Status: {'Solvent' if last_year['Reserve_Fund'] > 0 else 'Deficit'}"
+                ai_response = ask_gemini_actuary(chat_input, data_summary, agent_choice, gemini_api_key)
+                st.markdown(f"**🤖 {agent_choice} Analysis:**\n\n{ai_response}")
+                log_change(f"Oversight Consultation ({agent_choice}): {chat_input}")
 
 with tab_agents:
     st.subheader("🤖 Agentic Oversight Team (CrewAI Pattern)")

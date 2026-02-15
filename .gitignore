@@ -49,3 +49,6 @@ Thumbs.db
 
 # GCP Credentials
 service_account.json
+
+# Build artifacts
+catboost_info/
