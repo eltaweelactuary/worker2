@@ -54,9 +54,9 @@ def log_change(msg):
 # =============================================================================
 
 with st.sidebar:
-    st.header("🔐 Authentication")
-    with st.expander("🔑 Upload Service Account JSON", expanded=not credentials):
-        uploaded_json = st.file_uploader("Drop service_account.json here", type="json")
+    st.header("🔐 1. Authentication")
+    with st.expander("🔑 Step A: Upload Service Account JSON", expanded=not credentials):
+        uploaded_json = st.file_uploader("Drop service_account.json here", type="json", help="Required for Phase 2: Strategic Intelligence. This key activates the Gemini 2.0 reasoning engine.")
         if uploaded_json:
             import json
             try:
@@ -67,18 +67,19 @@ with st.sidebar:
                 st.error(f"Invalid JSON: {e}")
     
     if credentials:
-        st.success("✅ Cloud Active")
+        st.success("✅ Cloud Active", help="System is connected to Google Cloud. Gemini Strategic AI is authenticated and active.")
     else:
-        st.info("💡 Local/Public Mode")
+        st.info("💡 Local/Public Mode", help="System is running without a GCP Key. Actuarial math works 100%, but AI Strategic Reasoning (Gemini) is locked.")
 
-    st.header("⚙️ Actuarial Assumptions")
+    st.header("⚙️ 2. Actuarial Assumptions")
     
     # 1.5 Module H: Strategic Scenarios (Presets)
-    st.subheader("🏁 Strategic Scenarios")
+    st.subheader("🏁 2.1 Strategic Scenarios")
     scenario = st.selectbox(
         "Select Demo Scenario:",
         ["Current Baseline (Deficit)", "Balanced Sustainability (Surplus)", "High-Efficiency Growth (Elite Surplus)"],
-        index=0
+        index=0,
+        help="Choose a pre-configured scenario to see different solvency outcomes. This automatically adjusts the economic sliders below."
     )
     
     # Define Preset Values
@@ -93,7 +94,7 @@ with st.sidebar:
     if "crisis_mode" not in st.session_state:
         st.session_state.crisis_mode = False
         
-    crisis_trigger = st.button("🔴 Simulate Crisis Scenario", width="stretch", type="secondary" if not st.session_state.crisis_mode else "primary")
+    crisis_trigger = st.button("🔴 Simulate Crisis Scenario", width="stretch", type="secondary" if not st.session_state.crisis_mode else "primary", help="Simulate an extreme economic shock with high inflation and low returns to test Article 40 resilience.")
     if crisis_trigger:
         st.session_state.crisis_mode = not st.session_state.crisis_mode
     
@@ -104,10 +105,10 @@ with st.sidebar:
         inv_return = 0.04      # 4%
         admin_expense_input = 0.07 # 7%
     else:
-        st.subheader("📈 Economic Factors")
-        med_inflation = st.slider("Medical Inflation (%)", 5.0, 25.0, p_med_inf, key="med_inf_slider", on_change=lambda: log_change(f"Updated Medical Inflation to {st.session_state.med_inf_slider}%")) / 100
-        wage_inflation = st.slider("Wage Inflation (%)", 3.0, 15.0, p_wage_inf, key="wage_inf_slider", on_change=lambda: log_change(f"Updated Wage Inflation to {st.session_state.wage_inf_slider}%")) / 100
-        inv_return = st.slider("Investment Return (%)", 5.0, 20.0, p_inv_ret, key="inv_ret_slider", on_change=lambda: log_change(f"Updated Investment Return to {st.session_state.inv_ret_slider}%")) / 100
+        st.subheader("📈 2.2 Economic Factors")
+        med_inflation = st.slider("Medical Inflation (%)", 5.0, 25.0, p_med_inf, key="med_inf_slider", help="Annual growth rate of medical claims costs.", on_change=lambda: log_change(f"Updated Medical Inflation to {st.session_state.med_inf_slider}%")) / 100
+        wage_inflation = st.slider("Wage Inflation (%)", 3.0, 15.0, p_wage_inf, key="wage_inf_slider", help="Annual growth rate of payroll wages (revenue base).", on_change=lambda: log_change(f"Updated Wage Inflation to {st.session_state.wage_inf_slider}%")) / 100
+        inv_return = st.slider("Investment Return (%)", 5.0, 20.0, p_inv_ret, key="inv_ret_slider", help="Expected annual yield on technical reserves.", on_change=lambda: log_change(f"Updated Investment Return to {st.session_state.inv_ret_slider}%")) / 100
         admin_expense_input = p_admin
     
     st.subheader("👥 Demographics")
@@ -118,25 +119,37 @@ with st.sidebar:
     projection_years = st.slider("Projection Horizon (Years)", 5, 50, 20)
     
     st.markdown("---")
-    import os
-    with st.sidebar.expander("📥 Download Demo Data (Governorates)"):
-        st.caption("Use these datasets to test the strategic scenarios:")
+    with st.sidebar.expander("📥 3. Download Demo Data (Governorates)"):
+        st.caption("Generate and download sample datasets for different regions:")
         
-        if os.path.exists("demo_port_said.csv"):
-            with open("demo_port_said.csv", "rb") as f:
-                st.download_button("🚢 Port Said (High Risk)", f, "port_said_baseline.csv", "text/csv", width="stretch")
-            
-        if os.path.exists("demo_luxor.csv"):
-            with open("demo_luxor.csv", "rb") as f:
-                st.download_button("🏛️ Luxor (Balanced)", f, "luxor_balanced.csv", "text/csv", width="stretch")
-            
-        if os.path.exists("demo_cairo_industrial.csv"):
-            with open("demo_cairo_industrial.csv", "rb") as f:
-                st.download_button("🏢 Cairo Industrial (Elite)", f, "cairo_elite.csv", "text/csv", width="stretch")
+        # Function to create CSV in memory
+        from io import BytesIO
+        def get_csv_bytes(elite=False):
+            df = generate_dummy_population(1000, elite_mode=elite)
+            return df.to_csv(index=False).encode('utf-8')
 
-    with st.expander("🛡️ Immutable Audit Trail"):
+        st.download_button(
+            "🚢 Port Said Model (High Risk)", 
+            get_csv_bytes(False), 
+            "port_said_baseline.csv", 
+            "text/csv", 
+            width="stretch",
+            help="High-risk regional profile with standard revenue base."
+        )
+        
+        st.download_button(
+            "🏢 Cairo Elite Model (Positive)", 
+            get_csv_bytes(True), 
+            "cairo_elite_sufficient.csv", 
+            "text/csv", 
+            width="stretch",
+            help="High-value regional profile with robust revenues and sustainable surplus."
+        )
+
+    with st.expander("🛡️ 4. Immutable Audit Trail"):
         if not st.session_state.audit_log:
-            st.write("No changes recorded.")
+            st.write("No changes recorded in this session.")
+            st.caption("Every adjustment to sliders or scenarios is timestamped here for regulatory transparency.")
         else:
             for log in reversed(st.session_state.audit_log):
                 st.caption(f"[{log['time']}] {log['action']}")
@@ -144,7 +157,7 @@ with st.sidebar:
     st.info("Terminologies aligned with Egypt Law 2/2018")
     
     st.divider()
-    if st.button("🔄 Reset & Return to Main", width="stretch"):
+    if st.button("🔄 Reset & Return to Main", width="stretch", help="Clears all data and returns to the landing page."):
         # Explicitly clear state and force rerun
         for key in ["population_df", "main_chat"]:
             if key in st.session_state:
@@ -160,24 +173,25 @@ if 'population_df' not in st.session_state:
     st.session_state.population_df = None
 
 if st.session_state.population_df is None:
-    st.info("🏛️ **Mission Control: System Initialization (v1.6 Legal Fidelity)**")
+    st.info("🏛️ **Mission Control: Step 1 - System Initialization (v1.8 Guided)**")
     st.markdown("""
     ### 👋 Welcome, Executive Actuary.
-    This platform is strictly aligned with **Egypt Law No. 2 of 2018**. 
-    Note that the current legal **Employer Contribution is fixed at 3%**. 
+    Follow this **3-Step Sovereign Workflow** to initialize your command center:
     
-    To begin the sovereign valuation, please initialize the citizen base:
+    1. **📊 Data Layer**: Upload your citizen base or use a pre-set model.
+    2. **⚙️ Assumption Layer**: Adjust actuarial factors in the sidebar (Economic/Demographic).
+    3. **🧠 Intelligence Layer**: Upload JSON in the sidebar to activate Strategic AI.
     """)
     
     col1, col2 = st.columns([2, 1])
     with col1:
-        uploaded_file = st.file_uploader("📤 Phase 1: Upload Citizen Structure (CSV)", type="csv", help="Upload the demographic dataset to trigger analytical tasks.")
+        uploaded_file = st.file_uploader("📤 Step 1: Upload Citizen Structure (CSV)", type="csv", help="Mandatory. Upload the demographic dataset to trigger analytical tasks.")
     with col2:
         st.caption("Strategic Simulation")
-        if st.button("🚀 Initialize High-Value Demo", width="stretch"):
+        if st.button("🚀 Step 1 (Alt): Initialize Elite Model", width="stretch", help="Fast-track to a positive, sufficient state demonstration using our pre-calibrated Elite Governorate model."):
             from pricing_engine import generate_dummy_population
-            st.session_state.population_df = generate_dummy_population(1000)
-            st.success("✅ High-Value Data Initialized (v1.6 Optimized).")
+            st.session_state.population_df = generate_dummy_population(1000, elite_mode=True)
+            st.success("✅ Elite 'Model Governorate' Data Initialized.")
             st.rerun()
             
     if uploaded_file:
@@ -186,8 +200,8 @@ if st.session_state.population_df is None:
         st.rerun()
     
     st.divider()
-    st.caption("Status: Waiting for Data Input | Enterprise Version 1.4 Stable")
-    st.stop() # Gated until Phase 1 is complete
+    st.caption("Status: System Offline | Enterprise Version 1.8 Stable")
+    st.stop()
 
 # 2. Run Engine
 config = UHISystemConfig(
@@ -310,8 +324,8 @@ with tab3:
 
     # Module B: Stochastic Fan Chart
     st.markdown("---")
-    st.subheader("🎲 Solvency Risk Analysis (1,000 Scenarios)")
-    if st.button("Run Monte Carlo Stress Test"):
+    st.subheader("🎲 4. Solvency Risk Analysis (1,000 Scenarios)")
+    if st.button("Run Monte Carlo Stress Test", help="Simulates 1,000 futures with random inflation/investment fluctuations to find the failure probability."):
         with st.spinner("Simulating 1,000 actuarial futures..."):
             mc = engine.run_monte_carlo_simulation(st.session_state.population_df, years=projection_years)
             

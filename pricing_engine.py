@@ -333,19 +333,31 @@ class ActuarialValuationEngine:
         
         return audit_results
 
-def generate_dummy_population(size: int = 1000) -> pd.DataFrame:
+def generate_dummy_population(size: int = 1000, elite_mode: bool = False) -> pd.DataFrame:
     """
     Generates population_structure.csv for demonstration.
-    Balanced for higher revenue representation in v1.6.
+    v1.7: Support for 'Elite Mode' (Positive/Sufficient Case).
     """
     np.random.seed(42)
+    
+    if elite_mode:
+        # Phase 1: High-Value, Healthy Population (Elite Case)
+        emp_p = [0.85, 0.10, 0.05] # 85% Employees, only 5% State Supported
+        mean_wage = 18000
+        mean_cost = 4500
+    else:
+        # Baseline/Standard Case
+        emp_p = [0.70, 0.20, 0.10]
+        mean_wage = 12000
+        mean_cost = 6000
+        
     data = {
-        'Age': np.random.randint(18, 75, size),
+        'Age': np.random.randint(22, 60, size) if elite_mode else np.random.randint(18, 75, size),
         'Gender': np.random.choice(['Male', 'Female'], size),
-        'EmploymentStatus': np.random.choice(['Employee', 'Self-employed', 'Non-capable'], size, p=[0.7, 0.2, 0.1]),
-        'MonthlyWage': np.random.normal(12000, 5000, size).clip(6000, 100000), # Increased median to 12k
-        'SpouseInSystem': np.random.choice([True, False], size, p=[0.6, 0.4]),
-        'ChildrenCount': np.random.choice([0, 1, 2, 3], size, p=[0.3, 0.3, 0.3, 0.1]),
-        'EstimatedAnnualCost': np.random.normal(6000, 2000, size).clip(1000, 40000)
+        'EmploymentStatus': np.random.choice(['Employee', 'Self-employed', 'Non-capable'], size, p=emp_p),
+        'MonthlyWage': np.random.normal(mean_wage, 4000, size).clip(6000, 150000),
+        'SpouseInSystem': np.random.choice([True, False], size, p=[0.7, 0.3] if elite_mode else [0.6, 0.4]),
+        'ChildrenCount': np.random.choice([0, 1, 2], size, p=[0.5, 0.4, 0.1]) if elite_mode else np.random.choice([0, 1, 2, 3], size, p=[0.3, 0.3, 0.3, 0.1]),
+        'EstimatedAnnualCost': np.random.normal(mean_cost, 1000, size).clip(1000, 30000)
     }
     return pd.DataFrame(data)

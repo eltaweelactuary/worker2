@@ -20,21 +20,16 @@ def load_gcp_secrets(secret_id: str, project_id: str = None):
 def get_gcp_credentials():
     """
     Initializes GCP credentials strictly from uploaded JSON or local file.
-    Silences all diagnostic errors to keep the UI clean.
+    Uses from_service_account_info for in-memory loading (more robust in cloud).
     """
-    import tempfile
-    
     # 0. Priority 1: User-uploaded JSON in session state
     if "uploaded_gcp_json" in st.session_state and st.session_state.uploaded_gcp_json:
         try:
             info = st.session_state.uploaded_gcp_json
-            tmp_dir = tempfile.gettempdir()
-            tmp_path = os.path.join(tmp_dir, "gcp_uploaded_creds.json")
-            with open(tmp_path, "w") as f:
-                json.dump(info, f)
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp_path
-            return service_account.Credentials.from_service_account_file(tmp_path)
-        except:
+            # Use in-memory loading instead of temp files
+            return service_account.Credentials.from_service_account_info(info)
+        except Exception as e:
+            st.error(f"Auth Error (Session): {str(e)}")
             return None
 
     # 1. Priority 2: Local service_account.json (Development)
@@ -42,7 +37,8 @@ def get_gcp_credentials():
     if os.path.exists(local_path):
         try:
             return service_account.Credentials.from_service_account_file(local_path)
-        except:
+        except Exception as e:
+            # st.error(f"Auth Error (Local): {str(e)}")
             return None
 
     return None
