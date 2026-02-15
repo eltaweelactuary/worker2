@@ -55,11 +55,19 @@ def get_gcp_credentials():
             # and to satisfy the google-auth library's preference for files.
             info = dict(st.secrets["gcp_service_account"])
             
-            # Reconstruction of private key to remove any escaped characters or artifacts
+            # Reconstruction of private key: Atomic extraction of the PEM block
             if "private_key" in info:
                 pk = info["private_key"]
-                pk = pk.replace("\\n", "\n").strip().strip('"').strip("'")
-                info["private_key"] = pk
+                import re
+                # This regex captures EXACTLY the block between the markers and ignores anything else.
+                # This is the "Silver Bullet" for ASN.1 extra data errors.
+                match = re.search(r'(-----BEGIN PRIVATE KEY-----[\s\S]*?-----END PRIVATE KEY-----)', pk)
+                if match:
+                    info["private_key"] = match.group(1)
+                else:
+                    # Fallback for keys that might have escaped newlines instead of real ones
+                    pk = pk.replace("\\n", "\n").strip().strip('"').strip("'")
+                    info["private_key"] = pk
 
             # Create a temporary file that persists long enough for the auth client
             tmp_dir = tempfile.gettempdir()
