@@ -87,13 +87,24 @@ def get_gcp_diagnostics():
     if "private_key" in info:
         pk = info["private_key"]
         diag["checks"].append(f"Key Length: {len(pk)} chars")
-        diag["checks"].append(f"Starts with Header: {pk.strip().startswith('-----BEGIN PRIVATE KEY-----')}")
-        diag["checks"].append(f"Ends with Footer: {pk.strip().endswith('-----END PRIVATE KEY-----')}")
-        diag["checks"].append(f"Contains \\n (literal): {'\\n' in pk}")
+        diag["checks"].append(f"Contains 'BEGIN PRIVATE KEY': {'-----BEGIN PRIVATE KEY-----' in pk}")
+        diag["checks"].append(f"Contains 'END PRIVATE KEY': {'-----END PRIVATE KEY-----' in pk}")
         diag["checks"].append(f"Lines Count: {len(pk.splitlines())}")
+        
+        # Check for non-base64 characters in the body
+        import re
+        parts = re.split(r'-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----', pk)
+        if len(parts) >= 2:
+            body = parts[1].strip()
+            # Find any character that isn't Base64 valid or newline
+            invalid_chars = re.findall(r'[^A-Za-z0-9+/=\s]', body)
+            if invalid_chars:
+                diag["checks"].append(f"⚠️ Found {len(invalid_chars)} invalid characters in key body: {set(invalid_chars)}")
+            else:
+                diag["checks"].append("✅ Key body characters look valid (Base64)")
         
         # Check for common truncation
         if len(pk) < 1000:
-            diag["checks"].append("⚠️ WARNING: Key looks unusually short (Check for truncation)")
+            diag["checks"].append("⚠️ WARNING: Key looks unusually short (Average is ~1600+ chars)")
             
     return diag

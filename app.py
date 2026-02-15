@@ -32,7 +32,13 @@ st.markdown("""
 
 with st.sidebar:
     # GCP Authentication Status
-    credentials = get_gcp_credentials()
+    credentials = None
+    gcp_error = None
+    try:
+        credentials = get_gcp_credentials()
+    except Exception as e:
+        gcp_error = str(e)
+        
     if credentials:
         st.sidebar.success("✅ GCP Cloud Authenticated")
     else:
@@ -40,6 +46,8 @@ with st.sidebar:
         with st.sidebar.expander("🔍 GCP Diagnostic Tool"):
             from gcp_utils import get_gcp_diagnostics
             diag = get_gcp_diagnostics()
+            if gcp_error:
+                st.error(f"**Critical Error:** {gcp_error}")
             st.write(f"**Status:** {diag['status']}")
             for check in diag.get('checks', []):
                 st.write(f"- {check}")
