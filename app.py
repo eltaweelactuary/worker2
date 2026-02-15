@@ -7,6 +7,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from pricing_engine import UHISystemConfig, ActuarialValuationEngine, generate_dummy_population
+from gcp_utils import get_gcp_credentials
 
 # =============================================================================
 # PAGE CONFIGURATION
@@ -30,6 +31,13 @@ st.markdown("""
 # =============================================================================
 
 with st.sidebar:
+    # GCP Authentication Status
+    credentials = get_gcp_credentials()
+    if credentials:
+        st.sidebar.success("✅ GCP Cloud Authenticated")
+    else:
+        st.sidebar.info("💡 Running in Local/Public Mode")
+
     st.header("⚙️ Actuarial Assumptions")
     
     st.subheader("📈 Economic Factors")
