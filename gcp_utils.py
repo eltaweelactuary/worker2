@@ -52,16 +52,18 @@ def get_gcp_credentials():
         
         if "private_key" in info:
             pk = info["private_key"]
-            # 1. Clean accidental quotes and whitespace
-            pk = pk.strip().strip('"').strip("'")
-            # 2. Handle escaped newlines
-            pk = pk.replace("\\n", "\n")
+            # 1. Preliminary cleanup
+            pk = pk.replace("\\n", "\n").strip().strip('"').strip("'")
             
-            # 3. Robust Regex Extraction to fix "extra data" errors
+            # 2. Extreme Reconstruction: Extract Base64 body and rebuild PEM
             import re
-            match = re.search(r"(-----BEGIN PRIVATE KEY-----[\s\S]*?-----END PRIVATE KEY-----)", pk)
-            if match:
-                info["private_key"] = match.group(1)
+            # Split by headers to get the body
+            parts = re.split(r'-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----', pk)
+            if len(parts) >= 2:
+                # Use only the middle part (the body) and strip all whitespace/newlines
+                body = "".join(parts[1].split())
+                # Rebuild perfectly formatted PEM
+                info["private_key"] = f"-----BEGIN PRIVATE KEY-----\n{body}\n-----END PRIVATE KEY-----"
             else:
                 info["private_key"] = pk.strip()
             
