@@ -25,6 +25,7 @@ class UHISystemConfig:
     participation_rate: float = 1.0
     employee_contr_rate: float = 0.01
     employer_contr_rate: float = 0.03
+    self_employed_contr_rate: float = 0.04  # Total 4% for self-employed
     family_spouse_contr_rate: float = 0.03
     family_child_contr_rate: float = 0.01
     state_non_capable_rate: float = 0.05  # 5% of min wage
@@ -54,6 +55,7 @@ class ActuarialValuationEngine:
         
         # Base Population Metrics
         total_employees = len(population_df[population_df['EmploymentStatus'] == 'Employee'])
+        total_self_employed = len(population_df[population_df['EmploymentStatus'] == 'Self-employed'])
         total_non_capable = len(population_df[population_df['EmploymentStatus'] == 'Non-capable'])
         
         # Calculate Base Annual Revenue from Population
@@ -63,8 +65,16 @@ class ActuarialValuationEngine:
             (self.config.employee_contr_rate + self.config.employer_contr_rate)
         )
         
-        # 2. Family Contributions (Heads of families pay for dependents)
-        # Assuming population_df includes 'SpouseInSystem' and 'ChildrenCount'
+        # 2. Self-employed Contributions (4% total)
+        self_employed_revenue_base = (
+            population_df[population_df['EmploymentStatus'] == 'Self-employed']['MonthlyWage'].sum() * 12 * 
+            self.config.self_employed_contr_rate
+        )
+        
+        # Combine work-based revenue
+        total_work_revenue_base = wage_revenue_base + self_employed_revenue_base
+        
+        # 3. Family Contributions (Heads of families pay for dependents)
         family_contr_base = 0
         if 'SpouseInSystem' in population_df.columns:
             family_contr_base += (
@@ -77,12 +87,10 @@ class ActuarialValuationEngine:
                 self.config.family_child_contr_rate
             )
 
-        # 3. State Treasury Support for Non-capables
+        # 4. State Treasury Support for Non-capables
         state_support_base = total_non_capable * self.config.min_wage_annual * self.config.state_non_capable_rate
         
         # Base Medical Cost
-        # In a real model, this would use Age/Gender loss ratios. 
-        # Here we use an aggregate mean cost from the population data.
         base_annual_cost = population_df['EstimatedAnnualCost'].sum() if 'EstimatedAnnualCost' in population_df.columns else 5000 * len(population_df)
 
         for year in range(years):
@@ -91,12 +99,12 @@ class ActuarialValuationEngine:
             year_med_growth = (1 + self.config.medical_inflation) ** year
             
             # Revenue Calculation
-            rev_wage = wage_revenue_base * year_wage_growth
+            rev_work = total_work_revenue_base * year_wage_growth
             rev_family = family_contr_base * year_wage_growth
-            rev_state = state_support_base * year_wage_growth # Assume support scales with wage/min-wage growth
+            rev_state = state_support_base * year_wage_growth
             rev_other = self.config.cigarette_tax_lump + self.config.highway_tolls_lump
             
-            total_revenue = rev_wage + rev_family + rev_state + rev_other
+            total_revenue = rev_work + rev_family + rev_state + rev_other
             
             # Cost Calculation
             total_medical_cost = base_annual_cost * year_med_growth
@@ -116,7 +124,7 @@ class ActuarialValuationEngine:
             
             projections.append({
                 'Year': year + 1,
-                'Revenue_Wage': rev_wage,
+                'Revenue_Wage_Self': rev_work,
                 'Revenue_Family': rev_family,
                 'Revenue_State': rev_state,
                 'Revenue_Other': rev_other,

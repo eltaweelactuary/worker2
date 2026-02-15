@@ -75,8 +75,7 @@ if uploaded_file:
 config = UHISystemConfig(
     medical_inflation=med_inflation,
     wage_inflation=wage_inflation,
-    investment_return_rate=inv_return,
-    projection_years=projection_years if 'projection_years' in locals() else 20
+    investment_return_rate=inv_return
 )
 
 engine = ActuarialValuationEngine(config)
@@ -84,7 +83,6 @@ df_proj = engine.project_solvency(st.session_state.population_df, years=projecti
 
 # 3. High Level Metrics (Final Year)
 last_year = df_proj.iloc[-1]
-status_color = "green" if last_year['Reserve_Fund'] > 0 else "red"
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -94,10 +92,11 @@ with col2:
 with col3:
     st.metric("Solvency Status", "Solvent" if last_year['Reserve_Fund'] > 0 else "Deficit", delta_color="normal")
 with col4:
-    if last_year['Required_State_Subsidy'] > 0:
-        st.warning(f"Required State Subsidy: {last_year['Required_State_Subsidy']/1e6:.1f}M")
-    else:
-        st.success("No State Subsidy Required")
+    # Enhancement: Turn red if > 0
+    subsidy = last_year['Required_State_Subsidy']
+    st.metric("Required State Subsidy", f"{subsidy/1e6:.1f}M", delta=f"{subsidy/1e6:.1f}M" if subsidy > 0 else None, delta_color="inverse")
+    if subsidy > 0:
+        st.warning(f"🚨 Article 48 Triggered: {subsidy/1e6:.1f}M deficit predicted.")
 
 # 4. Visualizations
 tab1, tab2, tab3 = st.tabs(["📊 Solvency Projection", "💸 Revenue vs Cost", "🗄️ Reserve Accumulation"])

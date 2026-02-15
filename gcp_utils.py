@@ -47,7 +47,10 @@ def get_gcp_credentials():
 
     # 2. Check for streamlit secrets (Standard for Streamlit Cloud)
     if "gcp_service_account" in st.secrets:
-        info = st.secrets["gcp_service_account"]
+        info = dict(st.secrets["gcp_service_account"])
+        # Robust handling for newlines in private_key
+        if "private_key" in info:
+            info["private_key"] = info["private_key"].replace("\\n", "\n")
         return service_account.Credentials.from_service_account_info(info)
         
     return None
