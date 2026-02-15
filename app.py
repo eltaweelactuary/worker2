@@ -66,6 +66,17 @@ with st.sidebar:
             for check in diag.get('checks', []):
                 st.write(f"- {check}")
             st.caption("Common fix: Ensure the key is pasted exactly inside triple quotes \"\"\" in Secrets.")
+        
+        with st.sidebar.expander("🔑 Upload Service Account JSON"):
+            uploaded_json = st.file_uploader("Drop service_account.json here", type="json")
+            if uploaded_json:
+                import json
+                try:
+                    st.session_state.uploaded_gcp_json = json.load(uploaded_json)
+                    st.success("JSON Key Loaded! Restarting auth...")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Invalid JSON: {e}")
 
     st.header("⚙️ Actuarial Assumptions")
     
@@ -126,7 +137,29 @@ with st.expander("🎓 **Guided Mission: How to use this Dashboard**", expanded=
     6.  **XAI Insights:** Open *"Why did the deficit increase?"* to see mathematical cost driver attribution.
     """)
 
+
+# 1. Load Data
+if 'population_df' not in st.session_state:
+    st.session_state.population_df = generate_dummy_population(pop_size)
+
+uploaded_file = st.file_uploader("Upload Population Structure (CSV)", type="csv")
+if uploaded_file:
+    st.session_state.population_df = pd.read_csv(uploaded_file)
+    st.success("Custom population data loaded.")
+
+# 2. Run Engine
+config = UHISystemConfig(
+    medical_inflation=med_inflation,
+    wage_inflation=wage_inflation,
+    investment_return_rate=inv_return,
+    admin_expense_pct=admin_expense_input
+)
+
+engine = ActuarialValuationEngine(config)
+df_proj = engine.project_solvency(st.session_state.population_df, years=projection_years)
+
 # 0.1 Module F: Agentic Oversight Team (CrewAI Concept)
+st.markdown("---")
 st.markdown("### 🤖 Agentic Oversight Team")
 agent_audit = engine.perform_agentic_audit(df_proj)
 agent_cols = st.columns(3)
@@ -153,7 +186,6 @@ if chat_input:
             data_summary = f"""
             - Years Projected: {projection_years}
             - Final Reserve: {df_proj.iloc[-1]['Reserve_Fund']/1e6:.1f}M EGP
-            - Probability of Insolvency: {mc.get('prob_insolvency', 'N/A') if 'mc' in locals() else 'N/A'}%
             - Medical Inflation: {med_inflation:.1%}
             - Wage growth: {wage_inflation:.1%}.
             """
@@ -161,26 +193,6 @@ if chat_input:
             ai_response = ask_gemini_actuary(chat_input, data_summary)
             st.markdown(f"**🤖 Gemini Actuary:**\n\n{ai_response}")
             log_change(f"AI Consultation: Asked '{chat_input}'")
-
-# 1. Load Data
-if 'population_df' not in st.session_state:
-    st.session_state.population_df = generate_dummy_population(pop_size)
-
-uploaded_file = st.file_uploader("Upload Population Structure (CSV)", type="csv")
-if uploaded_file:
-    st.session_state.population_df = pd.read_csv(uploaded_file)
-    st.success("Custom population data loaded.")
-
-# 2. Run Engine
-config = UHISystemConfig(
-    medical_inflation=med_inflation,
-    wage_inflation=wage_inflation,
-    investment_return_rate=inv_return,
-    admin_expense_pct=admin_expense_input
-)
-
-engine = ActuarialValuationEngine(config)
-df_proj = engine.project_solvency(st.session_state.population_df, years=projection_years)
 
 # 3. EXECUTIVE RISK ALERT CENTER
 st.markdown("### 🚨 Executive Risk Alerts")

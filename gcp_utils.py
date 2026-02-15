@@ -8,6 +8,10 @@ def load_gcp_secrets(secret_id: str, project_id: str = None):
     """
     Loads secrets from GCP Secret Manager or local streamlit secrets.
     """
+    # 0. Check for user-uploaded JSON in session state
+    if "uploaded_gcp_json" in st.session_state and st.session_state.uploaded_gcp_json:
+        return st.session_state.uploaded_gcp_json
+    
     # 1. Try to load from Streamlit Secrets (for Streamlit Community Cloud)
     if secret_id in st.secrets:
         return st.secrets[secret_id]
@@ -43,6 +47,16 @@ def get_gcp_credentials():
     """
     import tempfile
     
+    # 0. Check for uploaded key in session state
+    if "uploaded_gcp_json" in st.session_state and st.session_state.uploaded_gcp_json:
+        info = st.session_state.uploaded_gcp_json
+        tmp_dir = tempfile.gettempdir()
+        tmp_path = os.path.join(tmp_dir, "gcp_uploaded_creds.json")
+        with open(tmp_path, "w") as f:
+            json.dump(info, f)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp_path
+        return service_account.Credentials.from_service_account_file(tmp_path)
+
     # 1. Check for local file first (Development)
     local_path = "service_account.json"
     if os.path.exists(local_path):
@@ -109,7 +123,13 @@ def initialize_vertex_ai():
         return False
         
     project_id = None
-    if "gcp_service_account" in st.secrets:
+    
+    # Check session state first
+    if "uploaded_gcp_json" in st.session_state and st.session_state.uploaded_gcp_json:
+        project_id = st.session_state.uploaded_gcp_json.get("project_id")
+    
+    # Fallback to secrets
+    if not project_id and "gcp_service_account" in st.secrets:
         project_id = st.secrets["gcp_service_account"].get("project_id")
     
     if not project_id:
