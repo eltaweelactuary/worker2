@@ -61,7 +61,7 @@ with st.sidebar:
             from gcp_utils import get_gcp_diagnostics
             diag = get_gcp_diagnostics()
             if gcp_error:
-                st.error(f"**Critical Error:** {gcp_error}")
+                st.error(f"**GCP Error:** {gcp_error}")
             st.write(f"**Status:** {diag['status']}")
             for check in diag.get('checks', []):
                 st.write(f"- {check}")
@@ -80,6 +80,22 @@ with st.sidebar:
 
     st.header("⚙️ Actuarial Assumptions")
     
+    # 1.5 Module H: Strategic Scenarios (Presets)
+    st.subheader("🏁 Strategic Scenarios")
+    scenario = st.selectbox(
+        "Select Demo Scenario:",
+        ["Current Baseline (Deficit)", "Balanced Sustainability (Surplus)", "High-Efficiency Growth (Elite Surplus)"],
+        index=0
+    )
+    
+    # Define Preset Values
+    if scenario == "Balanced Sustainability (Surplus)":
+        p_med_inf, p_wage_inf, p_inv_ret, p_admin = 9.0, 8.0, 12.0, 0.04
+    elif scenario == "High-Efficiency Growth (Elite Surplus)":
+        p_med_inf, p_wage_inf, p_inv_ret, p_admin = 7.0, 8.0, 15.0, 0.03
+    else: # Baseline
+        p_med_inf, p_wage_inf, p_inv_ret, p_admin = 12.0, 7.0, 12.0, 0.04
+
     # 2. Sales Tool: Crisis Mode
     if "crisis_mode" not in st.session_state:
         st.session_state.crisis_mode = False
@@ -96,10 +112,10 @@ with st.sidebar:
         admin_expense_input = 0.07 # 7%
     else:
         st.subheader("📈 Economic Factors")
-        med_inflation = st.slider("Medical Inflation (%)", 5.0, 25.0, 12.0, key="med_inf_slider", on_change=lambda: log_change(f"Updated Medical Inflation to {st.session_state.med_inf_slider}%")) / 100
-        wage_inflation = st.slider("Wage Inflation (%)", 3.0, 15.0, 7.0, key="wage_inf_slider", on_change=lambda: log_change(f"Updated Wage Inflation to {st.session_state.wage_inf_slider}%")) / 100
-        inv_return = st.slider("Investment Return (%)", 5.0, 20.0, 12.0, key="inv_ret_slider", on_change=lambda: log_change(f"Updated Investment Return to {st.session_state.inv_ret_slider}%")) / 100
-        admin_expense_input = 0.04 # Default 4%
+        med_inflation = st.slider("Medical Inflation (%)", 5.0, 25.0, p_med_inf, key="med_inf_slider", on_change=lambda: log_change(f"Updated Medical Inflation to {st.session_state.med_inf_slider}%")) / 100
+        wage_inflation = st.slider("Wage Inflation (%)", 3.0, 15.0, p_wage_inf, key="wage_inf_slider", on_change=lambda: log_change(f"Updated Wage Inflation to {st.session_state.wage_inf_slider}%")) / 100
+        inv_return = st.slider("Investment Return (%)", 5.0, 20.0, p_inv_ret, key="inv_ret_slider", on_change=lambda: log_change(f"Updated Investment Return to {st.session_state.inv_ret_slider}%")) / 100
+        admin_expense_input = p_admin
     
     st.subheader("👥 Demographics")
     pop_size = st.number_input("Population Size (Sample)", 100, 100000, 1000)
@@ -109,6 +125,18 @@ with st.sidebar:
     projection_years = st.slider("Projection Horizon (Years)", 5, 50, 20)
     
     st.markdown("---")
+    with st.sidebar.expander("📥 Download Demo Data (Governorates)"):
+        st.caption("Use these datasets to test the strategic scenarios:")
+        
+        with open("demo_port_said.csv", "rb") as f:
+            st.download_button("🚢 Port Said (High Risk)", f, "port_said_baseline.csv", "text/csv", use_container_width=True)
+            
+        with open("demo_luxor.csv", "rb") as f:
+            st.download_button("🏛️ Luxor (Balanced)", f, "luxor_balanced.csv", "text/csv", use_container_width=True)
+            
+        with open("demo_cairo_industrial.csv", "rb") as f:
+            st.download_button("🏢 Cairo Industrial (Elite)", f, "cairo_elite.csv", "text/csv", use_container_width=True)
+
     with st.expander("🛡️ Immutable Audit Trail"):
         if not st.session_state.audit_log:
             st.write("No changes recorded.")
@@ -184,6 +212,7 @@ if chat_input:
             
             # Create a concise context for Gemini
             data_summary = f"""
+            - Selected Scenario: {scenario}
             - Years Projected: {projection_years}
             - Final Reserve: {df_proj.iloc[-1]['Reserve_Fund']/1e6:.1f}M EGP
             - Medical Inflation: {med_inflation:.1%}
