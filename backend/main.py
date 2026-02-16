@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
@@ -41,6 +41,53 @@ class AIConsultationRequest(BaseModel):
 @app.get("/")
 async def root():
     return {"status": "active", "engine": "FastAPI Actuarial v4.0", "project": get_gcp_project()}
+
+# --- Data Import ---
+
+REQUIRED_COLUMNS = ['Age', 'Gender', 'EmploymentStatus', 'MonthlyWage', 'SpouseInSystem', 'ChildrenCount', 'EstimatedAnnualCost']
+
+@app.post("/upload")
+async def upload_csv(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+        missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Missing columns: {', '.join(missing)}. Required: {', '.join(REQUIRED_COLUMNS)}")
+        return {
+            "status": "success",
+            "rows": len(df),
+            "columns": list(df.columns),
+            "sample": df.head(5).to_dict(orient='records'),
+            "statistics": {
+                "avg_age": round(df['Age'].mean(), 1),
+                "avg_wage": round(df['MonthlyWage'].mean(), 0),
+                "avg_cost": round(df['EstimatedAnnualCost'].mean(), 0),
+                "gender_split": df['Gender'].value_counts().to_dict(),
+                "employment_split": df['EmploymentStatus'].value_counts().to_dict()
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"CSV Parse Error: {str(e)}")
+
+@app.get("/sample-data")
+async def sample_data(size: int = 1000, elite_mode: bool = False):
+    df = generate_dummy_population(size=size, elite_mode=elite_mode)
+    return {
+        "status": "success",
+        "rows": len(df),
+        "columns": list(df.columns),
+        "sample": df.head(5).to_dict(orient='records'),
+        "statistics": {
+            "avg_age": round(df['Age'].mean(), 1),
+            "avg_wage": round(df['MonthlyWage'].mean(), 0),
+            "avg_cost": round(df['EstimatedAnnualCost'].mean(), 0),
+            "gender_split": df['Gender'].value_counts().to_dict(),
+            "employment_split": df['EmploymentStatus'].value_counts().to_dict()
+        }
+    }
 
 @app.post("/simulate")
 async def simulate(req: SimulationRequest):

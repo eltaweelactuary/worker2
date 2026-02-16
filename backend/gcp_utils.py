@@ -63,7 +63,7 @@ def ask_gemini_actuary(user_query: str, data_summary: str, persona: str, api_key
                 return "🔒 AI Locked: No API Key provided and couldn't detect GCP Service Account."
             
             vertexai.init(project=project_id, location="europe-west1")
-            model = VertexModel("gemini-1.5-flash")
+            model = VertexModel("gemini-2.0-flash")
             response = model.generate_content(full_prompt)
             return response.text
         except Exception as e:
