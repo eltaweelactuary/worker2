@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 import pandas as pd
@@ -8,6 +9,15 @@ from gcp_utils import ask_gemini_actuary, get_gcp_project
 from ml_engine import ActuarialMLEngine
 
 app = FastAPI(title="UHI Actuarial API", version="4.0.0")
+
+# --- CORS Configuration ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, replace with specific frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- Schemas ---
 
