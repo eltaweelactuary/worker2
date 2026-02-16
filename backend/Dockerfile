@@ -14,8 +14,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY . .
 
-# Expose port (Cloud Run uses $PORT)
-ENV PORT 8080
-
-# Run the API
-CMD uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+# Run the API using JSON format
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

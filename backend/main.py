@@ -3,8 +3,9 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
 import pandas as pd
 import io
-from .pricing_engine import UHISystemConfig, ActuarialValuationEngine, generate_dummy_population
-from .gcp_utils import ask_gemini_actuary, get_gcp_project
+from pricing_engine import UHISystemConfig, ActuarialValuationEngine, generate_dummy_population
+from gcp_utils import ask_gemini_actuary, get_gcp_project
+from ml_engine import ActuarialMLEngine
 
 app = FastAPI(title="UHI Actuarial API", version="4.0.0")
 
@@ -91,7 +92,7 @@ async def ask_ai(req: AIConsultationRequest):
 @app.post("/ml/analysis")
 async def ml_analysis(population_size: int = 1000, elite_mode: bool = False):
     try:
-        from .ml_engine import ActuarialMLEngine
+        from ml_engine import ActuarialMLEngine
         ml = ActuarialMLEngine()
         
         pop_df = generate_dummy_population(size=population_size, elite_mode=elite_mode)
