@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+catboost_info/
+
+# Dev files
+.devcontainer/
+.vscode/
+.idea/
+*.md
+notebooks/
+docs/
+submissions/
+data/
+
+# CSV demo files
+*.csv
+
+# Credentials (NEVER in image)
+service_account.json
+.env
+
+# Old requirements
+requirements_dashboard.txt
+
+# Presentation
+*.html

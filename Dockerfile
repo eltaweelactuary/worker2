@@ -1,22 +1,31 @@
-# Use official Python image
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install only essential system deps
-RUN apt-get update && apt-get install -y \
+# Install system deps for building packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python deps
+# Install Python deps
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy only application source files
+COPY app.py .
+COPY pricing_engine.py .
+COPY gcp_utils.py .
+COPY .streamlit/ .streamlit/
 
-# Cloud Run uses PORT env var (default 8080)
+# Cloud Run injects PORT env var (default 8080)
+ENV PORT=8080
 EXPOSE 8080
 
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0", "--server.headless=true"]
+# Use shell form so $PORT is expanded at runtime
+CMD streamlit run app.py \
+    --server.port=$PORT \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --server.enableCORS=false \
+    --server.enableXsrfProtection=false \
+    --browser.gatherUsageStats=false
