@@ -1,6 +1,6 @@
 # Actuarial Valuation Dashboard (UHI Egypt)
 # Law No. 2 of 2018 Compliance
-# v3.3 Stable - Gemini API Direct
+# v3.5 Stable - Hybrid Cloud Auth
 
 import streamlit as st
 import pandas as pd
@@ -8,6 +8,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from pricing_engine import UHISystemConfig, ActuarialValuationEngine, generate_dummy_population
+from gcp_utils import get_gcp_project, ask_gemini_actuary
 
 # =============================================================================
 # PAGE CONFIGURATION
@@ -30,10 +31,11 @@ st.markdown("""
 # GLOBAL AUTH & STATE
 # =============================================================================
 
-# 0. Gemini API Key Check
-gemini_api_key = None
-if "gemini_api_key" in st.session_state and st.session_state.gemini_api_key:
-    gemini_api_key = st.session_state.gemini_api_key
+# 0. AI Connection Detection
+project_id = get_gcp_project()
+is_cloud_native = project_id is not None
+
+gemini_api_key = st.session_state.get("gemini_api_key")
 
 if "audit_log" not in st.session_state:
     st.session_state.audit_log = []
@@ -50,24 +52,32 @@ def log_change(msg):
 # =============================================================================
 
 with st.sidebar:
-    st.header("🔐 1. Gemini API Key")
-    api_key_input = st.text_input(
-        "🔑 Paste your Gemini API Key:",
-        type="password",
-        value=gemini_api_key or "",
-        help="Get your free API key from https://aistudio.google.com/apikey"
-    )
-    if api_key_input:
-        st.session_state.gemini_api_key = api_key_input
-        gemini_api_key = api_key_input
-        st.success("✅ Gemini AI Active")
+    st.header("🔐 AI Connection")
+    
+    if is_cloud_native:
+        st.success(f"☁️ Connected: Vertex AI (Internal)")
+        st.caption(f"Project: `{project_id[:10]}...`")
+        st.info("💡 Using Cloud Run Service Account")
     else:
-        st.info("💡 Paste your API key to activate AI")
+        st.warning("🏠 Local/Standard Mode")
+        api_key_input = st.text_input(
+            "🔑 Gemini API Key:",
+            type="password",
+            value=gemini_api_key or "",
+            help="Get your free API key from https://aistudio.google.com/apikey"
+        )
+        if api_key_input:
+            st.session_state.gemini_api_key = api_key_input
+            gemini_api_key = api_key_input
+            st.success("✅ Direct API Active")
+        else:
+            st.info("💡 Paste your API key to activate AI")
 
-    st.header("⚙️ 2. Actuarial Assumptions")
+    st.divider()
+    st.header("⚙️ Actuarial Assumptions")
     
     # 1.5 Module H: Strategic Scenarios (Presets)
-    st.subheader("🏁 2.1 Strategic Scenarios")
+    st.subheader("🏁 Strategic Scenarios")
     scenario = st.selectbox(
         "Select Demo Scenario:",
         ["Current Baseline (Deficit)", "Balanced Sustainability (Surplus)", "High-Efficiency Growth (Elite Surplus)"],
@@ -253,14 +263,18 @@ st.markdown("---")
 tab_ai, tab_agents, tab_xai = st.tabs(["💬 Gemini Actuary", "🤖 Agentic Oversight", "ℹ️ XAI Insights"])
 
 with tab_ai:
-    if not gemini_api_key:
+    # Unlock if EITHER cloud native OR has API key
+    if not is_cloud_native and not gemini_api_key:
         st.warning("🔒 **Phase 2: Strategic Intelligence Locked**")
         st.info("""
-        The **Gemini 1.5 Flash Agent** requires an API key to activate reasoning.
-        Get your free key from [Google AI Studio](https://aistudio.google.com/apikey) and paste it in the sidebar.
+        To activate AI reasoning, either:
+        1. **Deploy to Cloud Run** (Enabled automatically via Service Account)
+        2. **Paste Gemini API Key** in the sidebar.
         """)
     else:
-        st.success("🤖 **Phase 2: AI Strategy Agent Activated**")
+        status_text = "🤖 Strategic Insight: Active (Vertex AI)" if is_cloud_native else "🤖 Strategic Insight: Active (Gemini API)"
+        st.success(f"**{status_text}**")
+        
         agent_choice = st.radio(
             "Select Specialist Agent:",
             ["Senior Actuary", "Legislative Architect"],
@@ -279,6 +293,7 @@ with tab_ai:
                 from gcp_utils import ask_gemini_actuary
                 
                 data_summary = f"- Scenario: {scenario}\n- Final Reserve: {last_year['Reserve_Fund']/1e6:.1f}M\n- Medical Inf: {med_inflation:.1%}\n- Solvency Status: {'Solvent' if last_year['Reserve_Fund'] > 0 else 'Deficit'}"
+                # Pass API key (could be None if is_cloud_native)
                 ai_response = ask_gemini_actuary(chat_input, data_summary, agent_choice, gemini_api_key)
                 st.markdown(f"**🤖 {agent_choice} Analysis:**\n\n{ai_response}")
                 log_change(f"Oversight Consultation ({agent_choice}): {chat_input}")

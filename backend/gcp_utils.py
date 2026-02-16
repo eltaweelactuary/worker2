@@ -1,15 +1,15 @@
 """
-AI Orchestration Module (v3.5 - Hybrid Auth)
+AI Orchestration Module (v4.0 Backend)
 Supports:
 1. Direct Gemini API (via API Key)
 2. Vertex AI (via Service Account / ADC)
 """
-import streamlit as st
 import google.generativeai as genai
 import vertexai
 from vertexai.generative_models import GenerativeModel as VertexModel
 import google.auth
 from google.auth.exceptions import DefaultCredentialsError
+from typing import Optional
 
 # ─── Agent Persona Definitions ─────────────────────────────────────────
 AGENT_PROMPTS = {
@@ -38,13 +38,9 @@ def get_gcp_project():
     except:
         return None
 
-@st.cache_data(show_spinner=False, ttl=3600)
-def ask_gemini_actuary(user_query: str, data_summary: str, persona: str, api_key: str = None):
+def ask_gemini_actuary(user_query: str, data_summary: str, persona: str, api_key: Optional[str] = None):
     """
     Sends a strategic actuarial query to the AI.
-    Priority:
-    1. If api_key is provided -> Use direct Gemini API.
-    2. If no api_key -> Try Vertex AI via Service Account (ADC).
     """
     prompt_template = AGENT_PROMPTS.get(persona, AGENT_PROMPTS["Senior Actuary"])
     full_prompt = prompt_template.replace("{data}", data_summary).replace("{query}", user_query)
@@ -67,7 +63,7 @@ def ask_gemini_actuary(user_query: str, data_summary: str, persona: str, api_key
                 return "🔒 AI Locked: No API Key provided and couldn't detect GCP Service Account."
             
             vertexai.init(project=project_id, location="europe-west1")
-            model = VertexModel("gemini-1.5-flash") # Vertex uses slightly different naming
+            model = VertexModel("gemini-1.5-flash")
             response = model.generate_content(full_prompt)
             return response.text
         except Exception as e:
