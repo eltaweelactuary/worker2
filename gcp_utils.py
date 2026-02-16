@@ -46,7 +46,7 @@ def ask_gemini_actuary(user_query: str, data_summary: str, persona: str, api_key
     """
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash")
 
         prompt_template = AGENT_PROMPTS.get(persona, AGENT_PROMPTS["Senior Actuary"])
         full_prompt = prompt_template.replace("{data}", data_summary).replace("{query}", user_query)
