@@ -1,8 +1,5 @@
 import './globals.css'
-import { Inter } from 'next/font/google'
 import { LayoutDashboard, ShieldAlert, BarChart3, Bot, Settings } from 'lucide-react'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
     title: 'UHI Actuarial Portal | Egypt',
@@ -16,7 +13,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en">
-            <body className={inter.className}>
+            <body style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
                 <div className="flex h-screen overflow-hidden">
                     {/* Sidebar */}
                     <aside className="w-64 glass-card m-4 mr-0 flex flex-col p-6">
